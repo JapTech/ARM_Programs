@@ -1,0 +1,115 @@
+.text
+
+.global _start
+
+_start:
+	LDR R3, =0xFF200050	// address for the KEYs
+	LDR R3, [R3]		// load the values for the KEYs
+				// 0 0 0 0 - when nothing is pressed, 0 0 0 1 - when KEY0, 0 0 1 0 - when KEY1, 0 1 0 0 when KEY2, 1 0 0 0 - when KEY3
+	
+	LDR R4, =0xFF200020	// connect the HEX3-0 address
+	MOV R2, #0		// counter
+
+INCREMENT:
+	BL DO_DELAY
+	ADD R2, #1
+	PUSH {R2}
+	MOV R0, R2		// parameters for conversion into decimal go to R0
+	BL DIVIDE
+	BL SEG7_CODE		// returns bit codes in R0
+	MOV R8, R0		// save the state
+	MOV R0, R1
+	BL DIVIDE
+	BL SEG7_CODE
+	LSL R0, #8	
+	ADD R0, R8		// add back ones digit
+	STR R0, [R4]
+	
+	LDR R5, =0xFF20005C	// edge capture addresses for the KEYs
+	LDR R3, [R5]		// load the values for the KEYs
+	MOV R6, #0b0001
+	CMP R3, R6		// if KEY0 is pressed
+	BLEQ WAIT
+	CMP R3, R6
+	BLEQ PRESS_AGAIN
+	CMP R3, R6
+	STREQ R6, [R5]
+	MOV R6, #0b0010
+	CMP R3, R6		// if KEY1 is pressed
+	BLEQ WAIT
+	CMP R3, R6
+	BLEQ PRESS_AGAIN
+	CMP R3, R6
+	STREQ R6, [R5]
+	MOV R6, #0b0100	
+	CMP R3, R6		// if KEY2 is pressed
+	BLEQ WAIT
+	CMP R3, R6
+	BLEQ PRESS_AGAIN
+	CMP R3, R6
+	STREQ R6, [R5]
+	MOV R6, #0b1000		
+	CMP R3, R6		// if KEY3 is pressed
+	BLEQ WAIT
+	CMP R3, R6
+	BLEQ PRESS_AGAIN
+	CMP R3, R6
+	STREQ R6, [R5]
+	POP {R2}
+	B INCREMENT
+
+WAIT:				// for buttons to be unpressed
+	LDR R9, =0xFF200050	// address for the KEYs
+	LDR R9, [R9]		// load the values for the KEYs
+	CMP R9, #0b0000		// only when nothing no keys are pressed is the wait over
+	BNE WAIT		// keep calling wait until that is the case
+	MOV PC, LR		// when keys are released, done	
+
+PRESS_AGAIN:
+	LDR R9, =0xFF200050	// address for the KEYs
+	LDR R9, [R9]		// load the values for the KEYs
+	CMP R9, #0b0000		// only when nothing no keys are pressed is the wait over
+	BEQ PRESS_AGAIN		// the moment pressed again
+	PUSH {LR}		// to save return address for main
+	BL WAIT
+	POP {LR}
+	MOV PC, LR	
+	 	
+DO_DELAY: 
+	LDR R7, =200000000 // delay counter
+SUB_LOOP: 
+	SUBS R7, R7, #1
+	BNE SUB_LOOP
+	MOVEQ PC, LR
+
+
+/* Subroutine to perform the integer division R0 / 10.
+* Returns: quotient in R1, and remainder in R0
+*/
+DIVIDE: 
+	MOV R2, #0
+CONT: 
+	CMP R0, #10
+	BLT DIV_END
+	SUB R0, #10
+	ADD R2, #1
+	B CONT
+
+DIV_END: 
+	MOV R1, R2 // quotient in R1 (remainder in R0)
+	MOV PC, LR
+
+/* Subroutine to convert the digits from 0 to 9 to be shown on a HEX display.
+* Parameters: R0 = the decimal value of the digit to be displayed
+* Returns: R0 = bit pattern to be written to the HEX display
+*/
+
+SEG7_CODE: 
+	MOV R1, #BIT_CODES
+	ADD R1, R0 // index into the BIT_CODES "array"
+	LDRB R0, [R1] // load the bit pattern (to be returned)
+	MOV PC, LR
+
+
+BIT_CODES: .byte 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110
+.byte 0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111
