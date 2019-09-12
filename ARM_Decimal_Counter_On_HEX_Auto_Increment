@@ -1,3 +1,4 @@
+
 .text
 
 .global _start
@@ -8,6 +9,10 @@ _start:
 				// 0 0 0 0 - when nothing is pressed, 0 0 0 1 - when KEY0, 0 0 1 0 - when KEY1, 0 1 0 0 when KEY2, 1 0 0 0 - when KEY3
 	
 	LDR R4, =0xFF200020	// connect the HEX3-0 address
+	LDR R4, =0xFF200020	// connect the HEX3-0 address
+	LDR R10, =0xFFFEC600	// load for the counter
+	LDR R11, =0xFFFEC608	// enable for the counter
+	LDR R12, =0xFFFEC60C	// finish bit in the counter
 	MOV R2, #0		// counter
 
 INCREMENT:
@@ -77,10 +82,16 @@ PRESS_AGAIN:
 	 	
 DO_DELAY: 
 	LDR R7, =200000000 // delay counter
-SUB_LOOP: 
-	SUBS R7, R7, #1
-	BNE SUB_LOOP
-	MOVEQ PC, LR
+	STR R7, [R10]	// load timer
+	MOV R7, #1	
+	STR R7, [R11]	// start the counter
+	
+CHECK_TIMER_END:
+	LDR R7, [R12]
+	CMP R7, #1	// if finished
+	BNE CHECK_TIMER_END
+	STR R7, [R12]	// will execute only when R7 = 1, reset this value
+	MOV PC, LR
 
 
 /* Subroutine to perform the integer division R0 / 10.
