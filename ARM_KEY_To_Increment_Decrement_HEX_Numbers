@@ -1,0 +1,109 @@
+.text
+
+.global _start
+
+_start:
+	LDR R3, =0xFF200050	// address for the KEYs
+	LDR R3, [R3]		// load the values for the KEYs
+				// 0 0 0 0 - when nothing is pressed, 0 0 0 1 - when KEY0, 0 0 1 0 - when KEY1, 0 1 0 0 when KEY2, 1 0 0 0 - when KEY3
+	
+	LDR R4, =0xFF200020	// connect the HEX3-0 address
+	MOV R2, #0		// counter
+
+
+CHECK:
+	LDR R3, =0xFF200050	// address for the KEYs
+	LDR R3, [R3]		// load the values for the KEYs
+	CMP R3, #0b0001		// if KEY0 is pressed
+	BEQ KEY0
+	CMP R3, #0b0010		// if KEY1 is pressed
+	BEQ KEY1	
+	CMP R3, #0b0100		// if KEY2 is pressed
+	BEQ KEY2		
+	CMP R3, #0b1000		// if KEY3 is pressed
+	BEQ KEY3
+	B CHECK
+
+
+
+KEY0:
+	BL WAIT
+	MOV R2, #0		// set the counter to 0
+	MOV R0, R2		// parameter to divide goes in R0
+	PUSH {R2}		// save the value in stack
+	BL DIVIDE		// division will be performed
+	BL SEG7_CODE		// bit codes will be in R0
+	POP {R2}
+	STR R0, [R4]		// push the number to HEX0
+	B CHECK
+	
+
+KEY1:
+	BL WAIT
+	ADD R2, #1		// set the counter to 0
+	MOV R0, R2		// parameter to divide goes in R0
+	PUSH {R2}		// save the value in stack
+	BL DIVIDE		// division will be performed
+	BL SEG7_CODE		// bit codes will be in R0
+	POP {R2}
+	STR R0, [R4]		// push the number to HEX0
+	B CHECK
+
+KEY2:
+	BL WAIT
+	SUB R2, #1		// set the counter to 0
+	MOV R0, R2		// parameter to divide goes in R0
+	PUSH {R2}		// save the value in stack
+	BL DIVIDE		// division will be performed
+	BL SEG7_CODE		// bit codes will be in R0
+	POP {R2}
+	STR R0, [R4]		// push the number to HEX0
+	B CHECK
+
+KEY3:
+	BL WAIT
+	MOV R0, #0
+	STR R0, [R4]		// push the number to HEX0
+	LDR R3, =0xFF200050	// address for the KEYs
+	LDR R3, [R3]		// load the values for the KEYs
+	CMP R3, #0b0000
+	BNE KEY0
+
+WAIT:
+	LDR R3, =0xFF200050	// address for the KEYs
+	LDR R3, [R3]		// load the values for the KEYs
+	CMP R3, #0b0000		// only when nothing no keys are pressed is the wait over
+	BNE WAIT		// keep calling wait until that is the case
+	MOVEQ PC, LR	
+	 	
+
+/* Subroutine to perform the integer division R0 / 10.
+* Returns: quotient in R1, and remainder in R0
+*/
+DIVIDE: 
+	MOV R2, #0
+CONT: 
+	CMP R0, #10
+	BLT DIV_END
+	SUB R0, #10
+	ADD R2, #1
+	B CONT
+
+DIV_END: 
+	MOV R1, R2 // quotient in R1 (remainder in R0)
+	MOV PC, LR
+
+/* Subroutine to convert the digits from 0 to 9 to be shown on a HEX display.
+* Parameters: R0 = the decimal value of the digit to be displayed
+* Returns: R0 = bit pattern to be written to the HEX display
+*/
+
+SEG7_CODE: 
+	MOV R1, #BIT_CODES
+	ADD R1, R0 // index into the BIT_CODES "array"
+	LDRB R0, [R1] // load the bit pattern (to be returned)
+	MOV PC, LR
+
+
+BIT_CODES: .byte 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110
+.byte 0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111
