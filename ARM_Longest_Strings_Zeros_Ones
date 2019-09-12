@@ -1,0 +1,74 @@
+	.text
+	.global _start
+
+	// RTS for finding longest strings of 1s 0s and 1010s
+
+
+	// R0 and R1 are used for parameter passing
+	// Calling convention for ARM is upheld
+
+_start:
+	MOV R8, #0		// R1 keeps track of largest 1s in a string
+	MOV R9, #0		// keeps track of largest 0s in a string
+	MOV R10, #0		// R10 keeps track of largest 10s in the string
+
+MAIN:
+	MOV R1, #TEST_NUM	// load the data word ...
+	LDR R1, [R1]		// number loaded
+	BL ONES
+	CMP R8, R0
+	MOVLE R8, R0		// update the largest length of 1s
+	MOV R1, #TEST_NUM
+	LDR R1, [R1]
+	MOV R0, #0		// reset the value
+	BL ZEROS
+	CMP R9, R0	
+	MOVLE R9, R0		// update the largest length of 0s
+	MOV R1, #TEST_NUM
+	LDR R1, [R1]
+	BL ALTERNATE
+	B END
+
+ZEROS:
+	MVN R1, R1		// move the negated value
+	B ONES
+
+
+ONES:
+	CMP R1, #0
+	MOVEQ PC, LR
+	LSR R2, R1, #1
+	AND R1, R1, R2
+	ADD R0, #1
+	B ONES
+
+
+ALTERNATE:
+	PUSH {LR}		// save the state for LR to return to MAIN
+	MOV R3, #0		// intermediate registers for 1s
+	MOV R4, #0		// intermediate for 0s
+	LDR R2, =0xAAAAAAAA
+	EOR R1, R1, R2
+	MOV R5, R1		// save the value for number loaded
+	BL ONES
+	CMP R3, R0		// compare values of 
+	MOVLE R3, R0
+	MOV R1, R5		// restore the number in R1
+	MOV R0, #0
+	BL ZEROS
+	CMP R4, R0
+	MOVLE R4, R0
+	CMP R3, R4
+	MOVGE R10, R3
+	MOVLE R10, R4
+	POP {LR}
+	MOV PC, LR
+	
+
+END:	B END
+	
+
+TEST_NUM:
+	.word 0xAAAAAAAA
+
+	.end
