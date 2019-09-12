@@ -1,0 +1,281 @@
+.global _start
+
+_start:
+
+ldr R12,=0xFFFEC600
+
+mov R6,#0
+
+mov R12,#0
+
+mov R8,#0
+
+mov R3,#0
+
+mov R10,#0 //Counter
+
+mov R11,#BIT_CODES //The address for the bit code.
+
+ldr R4,=0xFF20005C //KEY address edge
+
+ldr R5,=0xFF200020 //HEX0
+
+mov R7,#0
+
+
+
+
+
+
+
+BEGIN:
+
+//Reseting the values in key address edge.
+
+mov R12,#0b1111
+
+str R12,[R4]
+
+
+
+
+
+
+
+ldrb R6,[R11,R9]
+
+ldrb R8,[R11,R0]
+
+
+
+
+ORR R3, R6
+
+lsl R3,#8
+
+ORR R3,R8
+
+
+
+
+pop {R0,R9}
+
+ldrb R6,[R11,R9]
+
+ldrb R8,[R11,R0]
+
+
+
+
+lsl R3,#8
+
+ORR R3, R6
+
+lsl R3,#8
+
+ORR R3,R8
+
+
+
+
+str R3, [R5]
+
+BL DO_DELAY
+
+add R10,#1
+
+
+//The quotient will be found R9 and the remainder will be found in R0.
+
+//The 99
+
+mov R0,R10
+
+BL DIVIDE
+
+push {R0,R9}
+
+
+
+
+//The five 9
+
+mov R0,R7
+
+BL DIVIDE
+
+
+
+mov R6,#0
+
+mov R8,#0
+
+mov R3,#0
+
+
+
+
+//If the number exceeds 99, reset R10 back to 11.
+
+cmp R10,#100
+
+BLEQ RESETCOUNTER
+
+//If the number exceeds five 9
+
+cmp R7,#59
+
+BLEQ RESETSECONDCOUNTER
+
+//If nothing is pressed the edge returns -16.
+
+ldr R12,[R4]
+
+
+
+cmp R12,#0
+
+BLNE KEYPRESS
+
+
+
+
+
+
+
+END: B BEGIN
+
+
+
+
+
+KEYPRESS:
+
+mov R12,#0b1111
+
+str R12,[R4]
+B LOOP
+
+
+
+
+
+
+LOOP:
+
+//If there is any change. Stop or continue.
+
+ldr R12,[R4]
+
+
+
+cmp R12,#0
+
+BEQ LOOP
+mov R12,#0b1111
+
+str R12,[R4]
+mov pc,lr
+
+
+
+
+RESETSECONDCOUNTER:
+
+mov R7,#0
+
+mov pc,lr
+
+
+
+
+RESETCOUNTER:
+
+mov R10,#0
+
+add R7,#1
+
+mov pc,lr
+
+
+
+
+//The frequency of the timer is 200MHz
+
+DO_DELAY:
+
+push {R7,R12}
+ldr R12, =0xFFFEC600
+
+LDR R7, =2000000 // delay counter
+
+//Get the address of the timer
+
+ldr R12,=0xFFFEC600
+
+//Store the counter
+
+str R7, [R12]
+
+mov R7,#1
+
+//Reseting the interrupt
+
+str R7,[R12,#0xC]
+
+//Enable
+
+str R7,[R12,#0x8]
+
+SUB_LOOP:
+
+ldr R7,[R12,#0xC]
+
+cmp R7,#0
+
+BEQ SUB_LOOP
+
+//Disable the counter
+
+str R7,[R12,#0x8]
+
+
+
+
+pop {R7,R12}
+
+mov pc, lr
+
+
+
+
+
+
+
+DIVIDE:     MOV    R2, #0
+
+CONT:       CMP    R0, #10
+
+            BLT    DIV_END
+
+            SUB    R0, #10
+
+            ADD    R2, #1
+
+            B      CONT
+
+            //R9 is the quotient and R0 is the remainder
+
+DIV_END:    MOV    R9, R2    
+
+            MOV    PC, LR
+
+
+
+
+BIT_CODES:  .byte   0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110
+
+            .byte   0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111
+
+            .skip   2      // pad with 2 bytes to maintain word alignment
+
