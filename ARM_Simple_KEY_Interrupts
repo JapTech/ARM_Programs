@@ -1,0 +1,102 @@
+                B        _start              // reset vector
+                B        SERVICE_UND         // undefined instruction vector
+                B        SERVICE_SVC         // software interrupt vector
+                B        SERVICE_ABT_INST    // aborted prefetch vector
+                B        SERVICE_ABT_DATA    // aborted data vector
+                .word    0                   // unused vector
+                B        SERVICE_IRQ         // IRQ interrupt vector
+                B        SERVICE_FIQ         // FIQ interrupt vector
+			   
+                .text    
+                .global  _start 
+
+_start:                                  
+	/* Set up stack pointers for IRQ and SVC processor modes */
+				ldr sp,=0xFFFFFFFC	// points to given address on DDR3 memory on board
+				mov R0,#0b10010		// IRQ CPSR bits
+				msr  cpsr,R0		
+				mov R0,#0b10011		// Supervisor CPSR bits
+				ldr sp,=0x3FFFFFFC	// points to given address on a9 onchip memory
+				msr cpsr,R0		// back to Supervisor mode
+				
+
+                BL       CONFIG_GIC      // configure the ARM generic
+                                         // interrupt controller
+/* Configure the KEY pushbuttons port to generate interrupts */
+                ldr R0,=0xFF200050
+		mov R1,#0xF 
+		str R1,[R0,#0x8] //Write 1111 into the key interrupt in order to enable the interrupts of all the keys.
+
+/* Enable IRQ interrupts in the ARM processor */
+               mov R0,#0b01010011
+		   	msr CPSR_c,R0
+
+IDLE:                                    
+                B        IDLE            // main program simply idles
+
+/* Define the exception service routines */
+SERVICE_UND:
+
+ SERVICE_SVC:
+   SERVICE_ABT_INST:
+  SERVICE_ABT_DATA:
+  SERVICE_FIQ:
+
+SERVICE_IRQ:    PUSH     {R0-R7, LR}     
+                LDR      R4, =0xFFFEC100 // GIC CPU interface base address
+                LDR      R5, [R4, #0x0C] // read the ICCIAR in the CPU
+                                         // interface
+
+KEYS_HANDLER:                       
+                CMP      R5, #73         // check the interrupt ID
+
+UNEXPECTED:     BNE      UNEXPECTED      // if not recognized, stop here
+                BL       KEY_ISR         
+
+EXIT_IRQ:       STR      R5, [R4, #0x10] // write to the End of Interrupt
+                                         // Register (ICCEOIR)
+                POP      {R0-R7, LR}     
+                SUBS     PC, LR, #4      // return from exception
+
+KEY_ISR: ldr R0, =0xFF200050
+ldr R1,[R0,#0xC]
+str R1,[R0,#0xC]
+ldr R0,=KEY_HOLD
+ldr R2,[R0]
+EOR R1,R2,R1
+str R1,[R0]
+ldr R0,=0xFF200020
+mov R2,#0
+
+CHECK_KEY0:
+mov R3,#0b0001
+ANDS R3,R3,R1
+BEQ  CHECK_KEY1
+mov  R2,#0b00111111
+
+CHECK_KEY1:
+mov R3,#0b0010
+ANDS R3,R3,R1
+BEQ CHECK_KEY2
+mov R3,#0b00000110
+ORR R2,R2,R3,LSL #8
+
+CHECK_KEY2:
+mov R3,#0b0100
+ANDS R3,R3,R1
+BEQ  CHECK_KEY3
+mov  R3,#0b01011011
+ORR  R2,R2,R3,LSL #16
+
+CHECK_KEY3:
+mov  R3,#0b1000
+ands R3,R3,R1
+BEQ END_KEY_ISR
+mov R3,#0b01001111
+ORR R2,R2,R3,LSL #24
+
+END_KEY_ISR:
+  str R2,[R0]
+  BX LR
+  
+KEY_HOLD: .word 0b0000
