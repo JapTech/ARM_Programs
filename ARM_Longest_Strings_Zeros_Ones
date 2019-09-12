@@ -1,74 +1,163 @@
-	.text
-	.global _start
+/* Program that counts consecutive 1's, 0's and 10's and outputs them onto HEX */
 
-	// RTS for finding longest strings of 1s 0s and 1010s
-
-
-	// R0 and R1 are used for parameter passing
-	// Calling convention for ARM is upheld
-
+          .text                   // executable code follows
+          .global _start                  
 _start:
-	MOV R8, #0		// R1 keeps track of largest 1s in a string
-	MOV R9, #0		// keeps track of largest 0s in a string
-	MOV R10, #0		// R10 keeps track of largest 10s in the string
-
-MAIN:
-	MOV R1, #TEST_NUM	// load the data word ...
-	LDR R1, [R1]		// number loaded
-	BL ONES
-	CMP R8, R0
-	MOVLE R8, R0		// update the largest length of 1s
-	MOV R1, #TEST_NUM
-	LDR R1, [R1]
-	MOV R0, #0		// reset the value
-	BL ZEROS
-	CMP R9, R0	
-	MOVLE R9, R0		// update the largest length of 0s
-	MOV R1, #TEST_NUM
-	LDR R1, [R1]
-	BL ALTERNATE
-	B END
-
-ZEROS:
-	MVN R1, R1		// move the negated value
-	B ONES
-
-
-ONES:
-	CMP R1, #0
-	MOVEQ PC, LR
-	LSR R2, R1, #1
-	AND R1, R1, R2
-	ADD R0, #1
-	B ONES
-
-
+  		//Store 10 sequence in R10
+          	//Store 0s in R0
+          	//Store 1s in R1
+          	//R3 is the return value
+          MOV     R5, #TEST_NUM   // load the data word ...
+          LDR     R7,=0xAAAAAAAA
+          LDR     R4, [R5]        // into R1
+          MOV     R3, #0   
+          MOV     R1,#0
+          MOV     R0,#0
+          MOV     R10,#0
+                   
 ALTERNATE:
-	PUSH {LR}		// save the state for LR to return to MAIN
-	MOV R3, #0		// intermediate registers for 1s
-	MOV R4, #0		// intermediate for 0s
-	LDR R2, =0xAAAAAAAA
-	EOR R1, R1, R2
-	MOV R5, R1		// save the value for number loaded
-	BL ONES
-	CMP R3, R0		// compare values of 
-	MOVLE R3, R0
-	MOV R1, R5		// restore the number in R1
-	MOV R0, #0
-	BL ZEROS
-	CMP R4, R0
-	MOVLE R4, R0
-	CMP R3, R4
-	MOVGE R10, R3
-	MOVLE R10, R4
-	POP {LR}
-	MOV PC, LR
-	
+         //Use R8 for number of 0s
+         //Use R9 for number of 1s
+         LDR R4,[R5]
+         CMP R4,#0
+         BEQ  ALTERNATE_END
+         EOR R4,R7
+         MOV R11,R4
+         
+         //Got the number 0s
+         BL  ZEROES
+         MOV R8,R3
+         MOV R3,#0
+         MOV R4,R11
+         
+         BL ONES
+         MOV R9,R3
+         
+         CMP   R9,R8
+         MOVGE R12,R9
+         MOVLT R12,R8
+         CMP   R10,R12
+         MOVLT R10,R12
+         MOV   R3,#0
+         ADD   R5,#4
+         B ALTERNATE  
+         
+ALTERNATE_END:      B      DISPLAY
 
-END:	B END
-	
+             // R0 will hold the result
+ONES:     CMP     R4, #0          // loop until the data contains no more 1's
+          MOVEQ   PC,LR            
+          LSR     R2, R4, #1      // perform SHIFT, followed by AND
+          AND     R4, R4, R2      
+          ADD     R3, #1          // count the string length so far
+          B       ONES            
 
-TEST_NUM:
-	.word 0xAAAAAAAA
+ZEROES: 
+	MVN R4,R4
+	B   ONES
+        
 
-	.end
+
+TEST_NUM: 	.word  0x10000001
+      		.word  0x10293093
+          	.word  0x103fe10f
+          	.word  0x00008000
+          	.word  0xAAAAAAAA
+  		.word  0x0
+            
+          
+DISPLAY: 
+	MOV R5,R1
+	MOV R6,R0
+        MOV R7,R10
+        MOV R3,#10
+            
+//Display R5
+LDR     R8, =0xFF200020 // base address of HEX3-HEX0
+            MOV     R0, R5          // display R5 on HEX1-0
+            BL      DIVIDE          // ones digit will be in R0; tens
+                                    // digit in R1
+            MOV     R9, R2          // save the tens digit
+            BL      SEG7_CODE       
+            MOV     R4, R0          // save bit code
+            MOV     R0, R9          // retrieve the tens digit, get bit
+                                    // code
+            BL      SEG7_CODE       
+            LSL     R0, #8
+            ORR     R4, R0
+            MOV     R12,R4
+            
+            
+            
+            //Display R6
+            MOV     R0, R6          // display R5 on HEX1-0
+          
+            
+            BL      DIVIDE          // ones digit will be in R0; tens
+                                    // digit in R1
+            MOV     R9, R2          // save the tens digit
+            BL      SEG7_CODE 
+            
+            LSL     R0,#8
+            
+            LSL     R0,#8
+       
+            
+            
+            MOV     R4, R0          // save bit code
+            MOV     R0, R9          // retrieve the tens digit, get bit
+                                    // code
+            BL      SEG7_CODE       
+            
+            
+            LSL     R0,#24
+            ORR     R4, R0
+            
+            //Add back R5
+            ORR     R4,R12
+            
+            
+            STR     R4, [R8]        // display the numbers from R6 and R5
+            
+            
+            //Display R7
+           
+            LDR     R8, =0xFF200030 // base address of HEX5-HEX4
+            MOV     R0, R7          // display R5 on HEX1-0
+            BL      DIVIDE          // ones digit will be in R0; tens
+                                    // digit in R1
+            MOV     R9, R2          // save the tens digit
+            BL      SEG7_CODE       
+            MOV     R4, R0          // save bit code
+            MOV     R0, R9          // retrieve the tens digit, get bit
+                                    // code
+            BL      SEG7_CODE       
+            LSL     R0, #8
+            ORR     R4, R0
+            
+            STR     R4, [R8]        // display the numbers from R6 and R5
+           
+          END: B END
+         
+
+DIVIDE:     MOV    R2, #0
+CONT:       CMP    R0, R3
+            BLT    DIV_END
+            SUB    R0, R3
+            ADD    R2, #1
+            B      CONT
+DIV_END:    MOV    R10, R2     
+            MOV    PC, LR
+            
+            
+            
+            
+SEG7_CODE:  
+	MOV R1, #BIT_CODES
+    	ADD R1, R0 // index into the BIT_CODES "array"
+    	LDRB R0, [R1] // load the bit pattern (to be returned)
+	MOV PC, LR   
+            
+BIT_CODES:  .byte   0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110
+            .byte   0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111
+            .skip   2      // pad with 2 bytes to maintain word alignment
