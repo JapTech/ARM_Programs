@@ -1,23 +1,115 @@
 
+// this program finds the longest string of 1's in a 32-bit word
+
 	.text
 	.global _start
 
 _start: 
+	
 	MOV R1, #TEST_NUM	//load the data word
 	LDR R1, [R1]		//load its value in R1
-	MOV R0, #0		//RO will hold result
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+	
+	MOV R5, R0		//save the first one
+	
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #4]	//load second word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
 
-LOOP:	
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #8]	//load third word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+	
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #12]	//load fourth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #16]	//load fifth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #20]	//load sixth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #24]	//load seventh word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #28]	//load eighth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #32]	//load ninth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	MOV R1, #TEST_NUM	
+	LDR R1, [R1, #36]	//load tenth word in R1
+	MOV R0, #0		//RO will hold result	
+	BL ONES
+
+	CMP R0, R5		//if greater, then store
+	MOVGE R5, R0
+
+	B END	
+
+ONES:	
 	CMP R1, #0		//loop until the data no longer contains 1's
-	BEQ END
+	MOVEQ PC, LR		//return to _start
 	LSR R2, R1, #1		//Shift
 	AND R1, R1, R2		//perform AND
 	ADD R0, #1		//count the string length so far
-	B LOOP
+	B ONES
 
 END:
 	B END
 
-TEST_NUM:	.word 0x103fe00f
+TEST_NUM:	
+	.word 0x103fe00f	//9 1's in the longest bit string
+	//.word 0xffffffff	//32 
+	.word 0xccccccce	//3 
+	.word 0xccccccde	//4
+	.word 0xccccccbe	//5
+	.word 0xfeccccbe	//6
+	.word 0xff00ccbe	//7
+	.word 0xff80ccbe	//8
+	.word 0xffc0ccbe	//9
+	.word 0xffe0ccbe	//10
+	.word 0x0
 
-	.end
+.end
